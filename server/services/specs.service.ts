@@ -1,11 +1,19 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
+import { aiSpecPlanSchema } from "@/lib/validations/ai-spec-plan.schema";
 import { db } from "@/lib/db";
 import type { CreateSpecInput, UpdateSpecInput } from "@/lib/validations/spec-input.schema";
 import { getOrCreateMockUser } from "@/server/auth/mock-user";
-import type { SpecDetail, SpecListItem, SpecPlanPreview } from "@/types/spec";
+import type {
+  GenerationRunSummary,
+  SpecDetail,
+  SpecListItem,
+  SpecPlanData,
+  SpecPlanPreview,
+  SpecPlanVersion
+} from "@/types/spec";
 
-const latestPlanInclude = {
+const listInclude = {
   plans: {
     orderBy: { createdAt: "desc" },
     take: 1,
@@ -14,6 +22,41 @@ const latestPlanInclude = {
       version: true,
       summary: true,
       createdAt: true
+    }
+  }
+} satisfies Prisma.SpecInclude;
+
+const detailInclude = {
+  plans: {
+    orderBy: [{ version: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      version: true,
+      summary: true,
+      requirements: true,
+      assumptions: true,
+      frontendTasks: true,
+      backendTasks: true,
+      databaseSchema: true,
+      apiEndpoints: true,
+      edgeCases: true,
+      testCases: true,
+      risks: true,
+      modelUsed: true,
+      createdAt: true
+    }
+  },
+  generationRuns: {
+    orderBy: { startedAt: "desc" },
+    take: 1,
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      finishedAt: true,
+      errorMessage: true,
+      tokensUsed: true,
+      latencyMs: true
     }
   }
 } satisfies Prisma.SpecInclude;
@@ -30,11 +73,92 @@ function mapPlanPreview(plan: { id: string; version: number; summary: string; cr
   if (!plan) {
     return null;
   }
+
   return {
     id: plan.id,
     version: plan.version,
     summary: plan.summary,
     createdAt: plan.createdAt
+  };
+}
+
+function mapPlanVersion(plan: { id: string; version: number; summary: string; createdAt: Date }): SpecPlanVersion {
+  return {
+    id: plan.id,
+    version: plan.version,
+    summary: plan.summary,
+    createdAt: plan.createdAt
+  };
+}
+
+function mapGenerationRun(run: {
+  id: string;
+  status: "STARTED" | "SUCCEEDED" | "FAILED";
+  startedAt: Date;
+  finishedAt: Date | null;
+  errorMessage: string | null;
+  tokensUsed: number | null;
+  latencyMs: number | null;
+} | null): GenerationRunSummary | null {
+  if (!run) {
+    return null;
+  }
+
+  return {
+    id: run.id,
+    status: run.status,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+    errorMessage: run.errorMessage,
+    tokensUsed: run.tokensUsed,
+    latencyMs: run.latencyMs
+  };
+}
+
+function mapPlanData(plan: {
+  id: string;
+  version: number;
+  summary: string;
+  requirements: unknown;
+  assumptions: unknown;
+  frontendTasks: unknown;
+  backendTasks: unknown;
+  databaseSchema: unknown;
+  apiEndpoints: unknown;
+  edgeCases: unknown;
+  testCases: unknown;
+  risks: unknown;
+  modelUsed: string;
+  createdAt: Date;
+} | undefined): SpecPlanData | null {
+  if (!plan) {
+    return null;
+  }
+
+  const parsed = aiSpecPlanSchema.safeParse({
+    summary: plan.summary,
+    requirements: plan.requirements,
+    assumptions: plan.assumptions,
+    frontendTasks: plan.frontendTasks,
+    backendTasks: plan.backendTasks,
+    databaseSchema: plan.databaseSchema,
+    apiEndpoints: plan.apiEndpoints,
+    edgeCases: plan.edgeCases,
+    testCases: plan.testCases,
+    risks: plan.risks
+  });
+
+  if (!parsed.success) {
+    console.error(`Invalid persisted plan payload for plan ${plan.id}:`, parsed.error.flatten());
+    return null;
+  }
+
+  return {
+    id: plan.id,
+    version: plan.version,
+    createdAt: plan.createdAt,
+    modelUsed: plan.modelUsed,
+    ...parsed.data
   };
 }
 
@@ -67,7 +191,31 @@ function mapSpecToDetail(spec: {
   status: "DRAFT" | "GENERATING" | "COMPLETED" | "FAILED";
   createdAt: Date;
   updatedAt: Date;
-  plans: Array<{ id: string; version: number; summary: string; createdAt: Date }>;
+  plans: Array<{
+    id: string;
+    version: number;
+    summary: string;
+    requirements: unknown;
+    assumptions: unknown;
+    frontendTasks: unknown;
+    backendTasks: unknown;
+    databaseSchema: unknown;
+    apiEndpoints: unknown;
+    edgeCases: unknown;
+    testCases: unknown;
+    risks: unknown;
+    modelUsed: string;
+    createdAt: Date;
+  }>;
+  generationRuns: Array<{
+    id: string;
+    status: "STARTED" | "SUCCEEDED" | "FAILED";
+    startedAt: Date;
+    finishedAt: Date | null;
+    errorMessage: string | null;
+    tokensUsed: number | null;
+    latencyMs: number | null;
+  }>;
 }): SpecDetail {
   return {
     id: spec.id,
@@ -78,7 +226,10 @@ function mapSpecToDetail(spec: {
     status: spec.status,
     createdAt: spec.createdAt,
     updatedAt: spec.updatedAt,
-    latestPlan: mapPlanPreview(spec.plans[0])
+    latestPlan: mapPlanPreview(spec.plans[0]),
+    latestPlanData: mapPlanData(spec.plans[0]),
+    planVersions: spec.plans.map(mapPlanVersion),
+    latestGenerationRun: mapGenerationRun(spec.generationRuns[0] ?? null)
   };
 }
 
@@ -87,7 +238,7 @@ export async function listSpecsForMockUser(): Promise<SpecListItem[]> {
   const specs = await db.spec.findMany({
     where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
-    include: latestPlanInclude
+    include: listInclude
   });
 
   return specs.map(mapSpecToListItem);
@@ -104,7 +255,7 @@ export async function createSpecForMockUser(input: CreateSpecInput): Promise<Spe
       priority: input.priority,
       status: "DRAFT"
     },
-    include: latestPlanInclude
+    include: detailInclude
   });
 
   return mapSpecToDetail(spec);
@@ -114,7 +265,7 @@ export async function getSpecForMockUser(specId: string): Promise<SpecDetail | n
   const user = await getOrCreateMockUser();
   const spec = await db.spec.findFirst({
     where: { id: specId, userId: user.id },
-    include: latestPlanInclude
+    include: detailInclude
   });
 
   return spec ? mapSpecToDetail(spec) : null;
@@ -148,7 +299,7 @@ export async function updateSpecForMockUser(specId: string, input: UpdateSpecInp
   const spec = await db.spec.update({
     where: { id: specId },
     data: updateData,
-    include: latestPlanInclude
+    include: detailInclude
   });
 
   return mapSpecToDetail(spec);
