@@ -7,4 +7,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Phase 1 only: domain models are added in Phase 2.
+enum SpecStatus {
+  DRAFT
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum SpecPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RunStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  specs        Spec[]
+}
+
+model Spec {
+  id             String          @id @default(cuid())
+  userId         String
+  title          String
+  rawPrompt      String
+  context        String?
+  priority       SpecPriority    @default(MEDIUM)
+  status         SpecStatus      @default(DRAFT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plans          SpecPlan[]
+  generationRuns GenerationRun[]
+
+  @@index([userId, createdAt])
+}
+
+model SpecPlan {
+  id             String   @id @default(cuid())
+  specId         String
+  version        Int      @default(1)
+  summary        String
+  requirements   Json
+  assumptions    Json
+  frontendTasks  Json
+  backendTasks   Json
+  databaseSchema Json
+  apiEndpoints   Json
+  edgeCases      Json
+  testCases      Json
+  risks          Json
+  rawAiResponse  Json
+  modelUsed      String
+  createdAt      DateTime @default(now())
+  spec           Spec     @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@unique([specId, version])
+  @@index([specId, createdAt])
+}
+
+model GenerationRun {
+  id           String    @id @default(cuid())
+  specId       String
+  status       RunStatus @default(STARTED)
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  errorMessage String?
+  tokensUsed   Int?
+  latencyMs    Int?
+  spec         Spec      @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@index([specId, startedAt])
+}
