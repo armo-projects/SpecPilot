@@ -15,6 +15,9 @@ export function SiteHeader() {
           <Button asChild variant="outline" size="sm">
             <Link href="/dashboard">Dashboard</Link>
           </Button>
+          <Button asChild size="sm">
+            <Link href="/specs/new">New Spec</Link>
+          </Button>
         </nav>
       </div>
     </header>
