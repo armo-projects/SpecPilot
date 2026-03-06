@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: specpilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: specpilot
+      POSTGRES_PASSWORD: specpilot
+      POSTGRES_DB: specpilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - specpilot-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U specpilot -d specpilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  specpilot-postgres-data:
