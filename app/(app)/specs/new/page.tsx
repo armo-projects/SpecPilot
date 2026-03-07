@@ -13,7 +13,7 @@ export default function NewSpecPage() {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Create New Spec</h1>
         <p className="text-sm text-muted-foreground">
-          Add a title and product request. AI planning output will be generated in Phase 4.
+          Add a title and product request. A structured technical plan will be generated automatically.
         </p>
       </div>
       <CreateSpecForm />

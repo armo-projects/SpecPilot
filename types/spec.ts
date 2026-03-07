@@ -1,6 +1,5 @@
-import type { SpecPriority, SpecStatus } from "@/types/domain";
+import type { RunStatus, SpecPriority, SpecStatus } from "@/types/domain";
 import type { AiSpecPlan } from "@/lib/validations/ai-spec-plan.schema";
-import type { RunStatus } from "@/types/domain";
 
 export interface SpecPlanPreview {
   id: string;
