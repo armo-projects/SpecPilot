@@ -9,10 +9,10 @@ const STATUS_LABELS: Record<SpecStatus, string> = {
 };
 
 const STATUS_CLASSES: Record<SpecStatus, string> = {
-  DRAFT: "bg-slate-100 text-slate-700 border-slate-200",
-  GENERATING: "bg-blue-100 text-blue-700 border-blue-200",
-  COMPLETED: "bg-green-100 text-green-700 border-green-200",
-  FAILED: "bg-red-100 text-red-700 border-red-200"
+  DRAFT: "border-slate-200 bg-slate-100/80 text-slate-700",
+  GENERATING: "border-blue-200 bg-blue-100/80 text-blue-700",
+  COMPLETED: "border-emerald-200 bg-emerald-100/80 text-emerald-700",
+  FAILED: "border-red-200 bg-red-100/80 text-red-700"
 };
 
 type SpecStatusBadgeProps = {
@@ -21,7 +21,13 @@ type SpecStatusBadgeProps = {
 
 export function SpecStatusBadge({ status }: SpecStatusBadgeProps) {
   return (
-    <span className={cn("inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium", STATUS_CLASSES[status])}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium tracking-wide",
+        STATUS_CLASSES[status]
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full bg-current", status === "GENERATING" ? "animate-pulse" : "")} />
       {STATUS_LABELS[status]}
     </span>
   );

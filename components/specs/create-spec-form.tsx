@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createSpecInputSchema } from "@/lib/validations/spec-input.schema";
 import type { ApiErrorResponse, CreateSpecApiResponse } from "@/types/spec";
@@ -59,13 +61,22 @@ export function CreateSpecForm() {
 
       const data = (await response.json()) as CreateSpecApiResponse | ApiErrorResponse;
       if (!response.ok) {
-        setSubmitError("error" in data ? data.error : "Failed to create spec.");
+        const message = "error" in data ? data.error : "Failed to create spec.";
+        setSubmitError(message);
+        toast.error(message);
         return;
       }
 
       if (!("spec" in data)) {
         setSubmitError("Unexpected API response.");
+        toast.error("Unexpected API response.");
         return;
+      }
+
+      if ("generation" in data && data.generation.ok) {
+        toast.success(`Spec created. Plan v${data.generation.planVersion} generated.`);
+      } else {
+        toast.warning(data.generation.error?.message ?? "Spec created, but generation failed. You can retry.");
       }
 
       router.push(`/specs/${data.spec.id}`);
@@ -73,6 +84,7 @@ export function CreateSpecForm() {
     } catch (error) {
       console.error("Create spec failed:", error);
       setSubmitError("Request failed. Please try again.");
+      toast.error("Request failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -143,7 +155,14 @@ export function CreateSpecForm() {
 
       <div className="flex justify-end">
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Create Spec"}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            "Create Spec"
+          )}
         </Button>
       </div>
     </form>

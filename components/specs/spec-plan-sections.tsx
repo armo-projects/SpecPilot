@@ -1,12 +1,34 @@
+import type { ReactNode } from "react";
+import { Braces, Database, FlaskConical, Layers, ShieldAlert, Sparkles } from "lucide-react";
 import type { SpecPlanData } from "@/types/spec";
 
 type SpecPlanSectionsProps = {
   plan: SpecPlanData;
 };
 
-function SimpleList({ items }: { items: string[] }) {
+function SectionCard({
+  title,
+  icon,
+  children
+}: {
+  title: string;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <ul className="list-inside list-disc space-y-1 text-sm text-slate-700">
+    <article className="rounded-xl border bg-card p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        {icon}
+        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+      </div>
+      {children}
+    </article>
+  );
+}
+
+function BulletList({ items }: { items: string[] }) {
+  return (
+    <ul className="list-inside list-disc space-y-1.5 text-sm text-slate-700 marker:text-slate-400">
       {items.map((item, index) => (
         <li key={`${item}-${index}`}>{item}</li>
       ))}
@@ -22,65 +44,79 @@ function TaskList({
   tasks: Array<{ title: string; description: string; priority: "low" | "medium" | "high" }>;
 }) {
   return (
-    <article className="rounded-xl border bg-card p-5 shadow-sm">
-      <h3 className="mb-3 text-base font-semibold">{title}</h3>
+    <SectionCard title={title} icon={<Layers className="h-4 w-4 text-slate-500" />}>
       <div className="space-y-3">
         {tasks.map((task, index) => (
-          <div key={`${task.title}-${index}`} className="rounded-md border bg-slate-50 p-3">
+          <div key={`${task.title}-${index}`} className="rounded-lg border bg-slate-50/80 p-3">
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-sm font-medium text-slate-900">{task.title}</p>
-              <span className="rounded border bg-white px-2 py-0.5 text-xs uppercase text-slate-600">{task.priority}</span>
+              <span className="rounded-full border bg-white px-2 py-0.5 text-[11px] uppercase tracking-wide text-slate-600">
+                {task.priority}
+              </span>
             </div>
-            <p className="text-sm text-slate-700">{task.description}</p>
+            <p className="text-sm leading-6 text-slate-700">{task.description}</p>
           </div>
         ))}
       </div>
-    </article>
+    </SectionCard>
   );
+}
+
+function methodClass(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"): string {
+  switch (method) {
+    case "GET":
+      return "border-blue-200 bg-blue-100 text-blue-700";
+    case "POST":
+      return "border-emerald-200 bg-emerald-100 text-emerald-700";
+    case "PUT":
+      return "border-amber-200 bg-amber-100 text-amber-700";
+    case "PATCH":
+      return "border-violet-200 bg-violet-100 text-violet-700";
+    case "DELETE":
+      return "border-red-200 bg-red-100 text-red-700";
+    default:
+      return "border-slate-200 bg-slate-100 text-slate-700";
+  }
 }
 
 export function SpecPlanSections({ plan }: SpecPlanSectionsProps) {
   return (
     <div className="space-y-5">
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h2 className="mb-2 text-base font-semibold">Summary</h2>
-        <p className="text-sm text-slate-700">{plan.summary}</p>
-      </article>
+      <SectionCard title="Summary" icon={<Sparkles className="h-4 w-4 text-slate-500" />}>
+        <p className="text-sm leading-6 text-slate-700">{plan.summary}</p>
+      </SectionCard>
 
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h3 className="mb-2 text-base font-semibold">Requirements</h3>
-        <SimpleList items={plan.requirements} />
-      </article>
+      <SectionCard title="Requirements">
+        <BulletList items={plan.requirements} />
+      </SectionCard>
 
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h3 className="mb-2 text-base font-semibold">Assumptions</h3>
-        <SimpleList items={plan.assumptions} />
-      </article>
+      <SectionCard title="Assumptions">
+        <BulletList items={plan.assumptions} />
+      </SectionCard>
 
       <TaskList title="Frontend Tasks" tasks={plan.frontendTasks} />
       <TaskList title="Backend Tasks" tasks={plan.backendTasks} />
 
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h3 className="mb-3 text-base font-semibold">Database Schema</h3>
+      <SectionCard title="Database Schema" icon={<Database className="h-4 w-4 text-slate-500" />}>
         <div className="space-y-4">
           {plan.databaseSchema.map((entity) => (
-            <div key={entity.entity} className="rounded-md border p-3">
-              <p className="mb-2 text-sm font-semibold text-slate-900">{entity.entity}</p>
+            <div key={entity.entity} className="overflow-hidden rounded-lg border">
+              <div className="border-b bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900">{entity.entity}</div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
                   <thead>
-                    <tr className="text-slate-500">
-                      <th className="pb-1 pr-4 font-medium">Field</th>
-                      <th className="pb-1 pr-4 font-medium">Type</th>
-                      <th className="pb-1 font-medium">Required</th>
+                    <tr className="bg-white text-slate-500">
+                      <th className="px-3 py-2 font-medium">Field</th>
+                      <th className="px-3 py-2 font-medium">Type</th>
+                      <th className="px-3 py-2 font-medium">Required</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {entity.fields.map((field) => (
-                      <tr key={`${entity.entity}-${field.name}`} className="text-slate-700">
-                        <td className="py-1 pr-4">{field.name}</td>
-                        <td className="py-1 pr-4">{field.type}</td>
-                        <td className="py-1">{field.required ? "Yes" : "No"}</td>
+                    {entity.fields.map((field, index) => (
+                      <tr key={`${entity.entity}-${field.name}`} className={index % 2 === 0 ? "bg-white" : "bg-slate-50/70"}>
+                        <td className="px-3 py-2 font-mono text-xs text-slate-800">{field.name}</td>
+                        <td className="px-3 py-2 text-slate-700">{field.type}</td>
+                        <td className="px-3 py-2 text-slate-700">{field.required ? "Yes" : "No"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -89,37 +125,35 @@ export function SpecPlanSections({ plan }: SpecPlanSectionsProps) {
             </div>
           ))}
         </div>
-      </article>
+      </SectionCard>
 
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h3 className="mb-3 text-base font-semibold">API Endpoints</h3>
-        <div className="space-y-2">
+      <SectionCard title="API Endpoints" icon={<Braces className="h-4 w-4 text-slate-500" />}>
+        <div className="space-y-2.5">
           {plan.apiEndpoints.map((endpoint, index) => (
-            <div key={`${endpoint.method}-${endpoint.path}-${index}`} className="rounded-md border p-3">
-              <div className="mb-1 flex items-center gap-2">
-                <span className="rounded border bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{endpoint.method}</span>
-                <code className="text-xs text-slate-900">{endpoint.path}</code>
+            <div key={`${endpoint.method}-${endpoint.path}-${index}`} className="rounded-lg border p-3">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${methodClass(endpoint.method)}`}>
+                  {endpoint.method}
+                </span>
+                <code className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-900">{endpoint.path}</code>
               </div>
               <p className="text-sm text-slate-700">{endpoint.purpose}</p>
             </div>
           ))}
         </div>
-      </article>
+      </SectionCard>
 
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h3 className="mb-2 text-base font-semibold">Edge Cases</h3>
-        <SimpleList items={plan.edgeCases} />
-      </article>
+      <SectionCard title="Edge Cases" icon={<ShieldAlert className="h-4 w-4 text-slate-500" />}>
+        <BulletList items={plan.edgeCases} />
+      </SectionCard>
 
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h3 className="mb-2 text-base font-semibold">Test Cases</h3>
-        <SimpleList items={plan.testCases} />
-      </article>
+      <SectionCard title="Test Cases" icon={<FlaskConical className="h-4 w-4 text-slate-500" />}>
+        <BulletList items={plan.testCases} />
+      </SectionCard>
 
-      <article className="rounded-xl border bg-card p-5 shadow-sm">
-        <h3 className="mb-2 text-base font-semibold">Risks and Unknowns</h3>
-        <SimpleList items={plan.risks} />
-      </article>
+      <SectionCard title="Risks and Unknowns">
+        <BulletList items={plan.risks} />
+      </SectionCard>
     </div>
   );
 }

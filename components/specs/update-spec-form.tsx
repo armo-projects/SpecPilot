@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { updateSpecInputSchema } from "@/lib/validations/spec-input.schema";
 import type { ApiErrorResponse, GetSpecApiResponse, SpecDetail } from "@/types/spec";
 
 type UpdateSpecFormProps = {
   spec: SpecDetail;
+  disabled?: boolean;
 };
 
 type FormValues = {
@@ -17,7 +20,7 @@ type FormValues = {
   priority: "LOW" | "MEDIUM" | "HIGH";
 };
 
-export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
+export function UpdateSpecForm({ spec, disabled = false }: UpdateSpecFormProps) {
   const router = useRouter();
   const [values, setValues] = useState<FormValues>({
     title: spec.title,
@@ -58,19 +61,24 @@ export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
 
       const data = (await response.json()) as GetSpecApiResponse | ApiErrorResponse;
       if (!response.ok) {
-        setErrorMessage("error" in data ? data.error : "Failed to update spec.");
+        const message = "error" in data ? data.error : "Failed to update spec.";
+        setErrorMessage(message);
+        toast.error(message);
         return;
       }
 
       if (!("spec" in data)) {
         setErrorMessage("Unexpected API response.");
+        toast.error("Unexpected API response.");
         return;
       }
 
+      toast.success("Spec input updated.");
       router.refresh();
     } catch (error) {
       console.error("Update spec failed:", error);
       setErrorMessage("Request failed. Please try again.");
+      toast.error("Request failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -79,6 +87,9 @@ export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
       <h2 className="text-base font-semibold">Edit Input</h2>
+      {disabled ? (
+        <p className="text-sm text-amber-700">Generation is currently running. Editing is temporarily disabled.</p>
+      ) : null}
 
       <div className="space-y-2">
         <label htmlFor="edit-title" className="text-sm font-medium">
@@ -90,6 +101,7 @@ export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
           value={values.title}
           onChange={(event) => handleChange("title", event.target.value)}
           className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={disabled || isSubmitting}
         />
       </div>
 
@@ -102,6 +114,7 @@ export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
           value={values.rawPrompt}
           onChange={(event) => handleChange("rawPrompt", event.target.value)}
           className="min-h-32 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={disabled || isSubmitting}
         />
       </div>
 
@@ -114,6 +127,7 @@ export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
           value={values.context}
           onChange={(event) => handleChange("context", event.target.value)}
           className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={disabled || isSubmitting}
         />
       </div>
 
@@ -126,6 +140,7 @@ export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
           value={values.priority}
           onChange={(event) => handleChange("priority", event.target.value as FormValues["priority"])}
           className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={disabled || isSubmitting}
         >
           <option value="LOW">Low</option>
           <option value="MEDIUM">Medium</option>
@@ -136,8 +151,15 @@ export function UpdateSpecForm({ spec }: UpdateSpecFormProps) {
       {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
 
       <div className="flex justify-end">
-        <Button type="submit" variant="outline" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Save Changes"}
+        <Button type="submit" variant="outline" disabled={disabled || isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Changes"
+          )}
         </Button>
       </div>
     </form>
