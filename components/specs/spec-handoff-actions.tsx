@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Clipboard, ClipboardList, Download, FileDown } from "lucide-react";
+import { ChevronDown, Clipboard, ClipboardList, Download, FileDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { SpecExportOptions } from "@/components/specs/spec-export-options";
 import { Button } from "@/components/ui/button";
@@ -28,24 +28,29 @@ type PersistedExportState = {
   sections: ExportSectionKey[];
 };
 
+type BusyAction = "copy_full" | "copy_selected" | "download_markdown" | null;
+
 const STORAGE_KEY = "specpilot.export.preferences.v1";
+const MODE_LABELS: Readonly<Record<ExportMode, string>> = {
+  human: "Human Spec",
+  codex_ready: "Codex-Ready",
+  compact_brief: "Compact Brief"
+} as const;
+
+function getDefaultSections(mode: ExportMode): ExportSectionKey[] {
+  return [...DEFAULT_EXPORT_SECTIONS_BY_MODE[mode]];
+}
 
 function isExportMode(value: unknown): value is ExportMode {
   return typeof value === "string" && EXPORT_MODE_VALUES.includes(value as ExportMode);
 }
 
-function normalizeSections(mode: ExportMode, sections: readonly ExportSectionKey[]): ExportSectionKey[] {
+function normalizeSections(sections: readonly ExportSectionKey[]): ExportSectionKey[] {
   const allowed = new Set<ExportSectionKey>(EXPORT_SECTION_KEYS);
   const selected = new Set<ExportSectionKey>(
     sections.filter((section): section is ExportSectionKey => allowed.has(section))
   );
-  const ordered = EXPORT_SECTION_ORDER.filter((section) => selected.has(section));
-
-  if (ordered.length === 0) {
-    return [...DEFAULT_EXPORT_SECTIONS_BY_MODE[mode]];
-  }
-
-  return ordered;
+  return EXPORT_SECTION_ORDER.filter((section) => selected.has(section));
 }
 
 function toQuery(mode: ExportMode, format: "markdown" | "text", sections: readonly ExportSectionKey[]): string {
@@ -103,9 +108,10 @@ export function SpecHandoffActions({
   const [selectedSections, setSelectedSections] = useState<ExportSectionKey[]>([
     ...DEFAULT_EXPORT_SECTIONS_BY_MODE.human
   ]);
-  const [isBusy, setIsBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
+  const isBusy = busyAction !== null;
   const isDisabled = disabled || isBusy;
 
   useEffect(() => {
@@ -117,9 +123,10 @@ export function SpecHandoffActions({
 
       const parsed = JSON.parse(raw) as Partial<PersistedExportState>;
       const nextMode = isExportMode(parsed.mode) ? parsed.mode : "human";
-      const nextSections = Array.isArray(parsed.sections)
-        ? normalizeSections(nextMode, parsed.sections as ExportSectionKey[])
-        : [...DEFAULT_EXPORT_SECTIONS_BY_MODE[nextMode]];
+      const normalized = Array.isArray(parsed.sections)
+        ? normalizeSections(parsed.sections as ExportSectionKey[])
+        : getDefaultSections(nextMode);
+      const nextSections = normalized.length > 0 ? normalized : getDefaultSections(nextMode);
 
       setMode(nextMode);
       setSelectedSections(nextSections);
@@ -129,32 +136,42 @@ export function SpecHandoffActions({
   }, []);
 
   useEffect(() => {
+    const normalized = normalizeSections(selectedSections);
+    const safeSections = normalized.length > 0 ? normalized : getDefaultSections(mode);
     const payload: PersistedExportState = {
       mode,
-      sections: normalizeSections(mode, selectedSections)
+      sections: safeSections
     };
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [mode, selectedSections]);
 
   const selectedSectionsOrdered = useMemo(
-    () => normalizeSections(mode, selectedSections),
+    () => {
+      const normalized = normalizeSections(selectedSections);
+      return normalized.length > 0 ? normalized : getDefaultSections(mode);
+    },
     [mode, selectedSections]
   );
 
   function handleModeChange(nextMode: ExportMode): void {
     setMode(nextMode);
-    setSelectedSections([...DEFAULT_EXPORT_SECTIONS_BY_MODE[nextMode]]);
+    setSelectedSections(getDefaultSections(nextMode));
   }
 
   function handleToggleSection(section: ExportSectionKey, checked: boolean): void {
     setSelectedSections((current) => {
+      if (!checked && current.length === 1 && current.includes(section)) {
+        toast.message("At least one section must remain selected.");
+        return current;
+      }
+
       const next = new Set(current);
       if (checked) {
         next.add(section);
       } else {
         next.delete(section);
       }
-      return normalizeSections(mode, [...next]);
+      return normalizeSections([...next]);
     });
   }
 
@@ -163,41 +180,41 @@ export function SpecHandoffActions({
   }
 
   function handleResetDefaults(): void {
-    setSelectedSections([...DEFAULT_EXPORT_SECTIONS_BY_MODE[mode]]);
+    setSelectedSections(getDefaultSections(mode));
   }
 
   async function copyFullPlan(): Promise<void> {
-    setIsBusy(true);
+    setBusyAction("copy_full");
     try {
       const response = await fetchExportContent(specId, mode, EXPORT_SECTION_ORDER, "text");
       const content = await response.text();
       await navigator.clipboard.writeText(content);
-      toast.success("Full plan copied to clipboard.");
+      toast.success("Copied full plan to clipboard.");
     } catch (error) {
       console.error("Failed to copy full plan:", error);
       toast.error(error instanceof Error ? error.message : "Failed to copy full plan.");
     } finally {
-      setIsBusy(false);
+      setBusyAction(null);
     }
   }
 
   async function copySelectedSections(): Promise<void> {
-    setIsBusy(true);
+    setBusyAction("copy_selected");
     try {
       const response = await fetchExportContent(specId, mode, selectedSectionsOrdered, "text");
       const content = await response.text();
       await navigator.clipboard.writeText(content);
-      toast.success("Selected sections copied to clipboard.");
+      toast.success("Copied selected sections to clipboard.");
     } catch (error) {
       console.error("Failed to copy selected sections:", error);
       toast.error(error instanceof Error ? error.message : "Failed to copy selected sections.");
     } finally {
-      setIsBusy(false);
+      setBusyAction(null);
     }
   }
 
   async function downloadMarkdown(): Promise<void> {
-    setIsBusy(true);
+    setBusyAction("download_markdown");
     try {
       const response = await fetchExportContent(specId, mode, selectedSectionsOrdered, "markdown");
       const blob = await response.blob();
@@ -216,12 +233,12 @@ export function SpecHandoffActions({
       anchor.remove();
       URL.revokeObjectURL(blobUrl);
 
-      toast.success("Markdown export downloaded.");
+      toast.success("Markdown file downloaded.");
     } catch (error) {
       console.error("Failed to download markdown export:", error);
       toast.error(error instanceof Error ? error.message : "Failed to download markdown export.");
     } finally {
-      setIsBusy(false);
+      setBusyAction(null);
     }
   }
 
@@ -233,7 +250,13 @@ export function SpecHandoffActions({
     }
 
     const printUrl = `/specs/${specId}/print?${searchParams.toString()}`;
-    window.open(printUrl, "_blank", "noopener,noreferrer");
+    const popup = window.open(printUrl, "_blank", "noopener,noreferrer");
+    if (!popup) {
+      toast.error("Could not open print view. Check browser popup settings.");
+      return;
+    }
+
+    toast.success("Opened print view. Use Print to save as PDF.");
   }
 
   return (
@@ -242,6 +265,9 @@ export function SpecHandoffActions({
         <div className="space-y-1">
           <h2 className="text-sm font-semibold tracking-tight">Handoff</h2>
           <p className="text-xs text-muted-foreground">Copy or export execution-ready output from the canonical export path.</p>
+          <p className="text-xs text-slate-500">
+            Mode: {MODE_LABELS[mode]} | Sections: {selectedSectionsOrdered.length}
+          </p>
           {disabledReason ? <p className="text-xs text-amber-700">{disabledReason}</p> : null}
         </div>
 
@@ -254,8 +280,8 @@ export function SpecHandoffActions({
             disabled={isDisabled}
             className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
           >
-            <Clipboard className="mr-2 h-4 w-4" />
-            Copy Full Plan
+            {busyAction === "copy_full" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clipboard className="mr-2 h-4 w-4" />}
+            {busyAction === "copy_full" ? "Copying..." : "Copy Full Plan"}
           </Button>
           <Button
             type="button"
@@ -265,8 +291,8 @@ export function SpecHandoffActions({
             disabled={isDisabled}
             className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
           >
-            <ClipboardList className="mr-2 h-4 w-4" />
-            Copy Selected
+            {busyAction === "copy_selected" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
+            {busyAction === "copy_selected" ? "Copying..." : "Copy Selected"}
           </Button>
           <Button
             type="button"
@@ -275,8 +301,8 @@ export function SpecHandoffActions({
             disabled={isDisabled}
             className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
           >
-            <Download className="mr-2 h-4 w-4" />
-            Export Markdown
+            {busyAction === "download_markdown" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            {busyAction === "download_markdown" ? "Downloading..." : "Export Markdown"}
           </Button>
           <Button
             type="button"
@@ -287,7 +313,7 @@ export function SpecHandoffActions({
             className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
           >
             <FileDown className="mr-2 h-4 w-4" />
-            Export PDF
+            Open PDF View
           </Button>
         </div>
       </article>

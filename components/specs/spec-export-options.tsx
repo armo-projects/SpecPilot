@@ -100,6 +100,8 @@ export function SpecExportOptions({
           </div>
         </div>
 
+        <p className="text-[11px] text-slate-500">At least one section must remain selected.</p>
+
         <div className={`grid gap-1.5 rounded-md border bg-slate-50/70 p-2 ${compact ? "max-h-44 overflow-y-auto" : ""}`}>
           {EXPORT_SECTION_ORDER.map((section) => (
             <label
@@ -110,7 +112,7 @@ export function SpecExportOptions({
                 type="checkbox"
                 checked={selectedSet.has(section)}
                 onChange={(event) => onToggleSection(section, event.target.checked)}
-                disabled={disabled}
+                disabled={disabled || (selectedSections.length === 1 && selectedSet.has(section))}
                 className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-primary"
               />
               <span>{SECTION_LABELS[section]}</span>

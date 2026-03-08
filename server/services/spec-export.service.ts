@@ -55,8 +55,7 @@ function buildExportFilename(title: string, mode: ExportMode, format: ExportForm
 }
 
 function toPlainTextFromMarkdown(markdown: string): string {
-  // For Phase 2, plain text is intentionally the canonical markdown payload
-  // served with text/plain content type.
+  // Keep markdown as the canonical source and return it as plain text bytes.
   return markdown;
 }
 

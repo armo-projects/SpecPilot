@@ -1,79 +1,102 @@
 # SpecPilot
 
-SpecPilot is an AI-powered planning assistant that transforms feature requests into structured technical implementation plans.
+SpecPilot is an AI planning and handoff layer that turns rough product requests into structured execution-ready specs.
 
 ## One-Line Pitch
 
-Paste a product request, and SpecPilot generates a validated, versioned engineering plan you can review, edit, and regenerate.
+Paste a feature request, generate a validated technical plan, then copy/export it for human implementation or AI coding tools.
 
-## Features
+## What V2 Adds
 
-- Modern Next.js App Router frontend with polished dashboard and spec detail UX.
-- Create, view, and update specs with typed request validation.
-- AI generation using OpenAI Responses API with strict structured output schema.
-- Server-side Zod validation of AI output with one retry on schema failure.
-- Versioned plans (`v1`, `v2`, ...) per spec with generation run history.
-- Status-driven workflow: `DRAFT`, `GENERATING`, `COMPLETED`, `FAILED`.
-- Failure-safe persistence: invalid AI output never corrupts stored plan data.
-- Local PostgreSQL via Docker + Prisma ORM + seedable mock user.
+- Handoff actions on spec detail pages:
+  - Copy full plan
+  - Copy selected sections
+  - Export Markdown
+  - Open Print/PDF view
+- Export mode presets with selectable sections.
+- Canonical export renderer (single markdown source for copy, download, and print/PDF flows).
+- Print-friendly route for browser `Print / Save as PDF`.
+
+## Core Features
+
+- Create, edit, and manage specs.
+- AI generation with OpenAI Responses API + structured outputs.
+- Typed validation of request payloads and AI output.
+- Versioned plans (`v1`, `v2`, ...).
+- Generation run telemetry (status, tokens, latency).
+- Handoff/export workflows designed for reuse in downstream tools.
+
+## Export Modes
+
+| Mode | Purpose | Default sections |
+| --- | --- | --- |
+| `human` | Full engineering spec for review and implementation | All sections |
+| `codex_ready` | Implementation-oriented prompt for AI coding tools | Product request, context, requirements, assumptions, tasks, schema, API, edge cases, tests, risks |
+| `compact_brief` | Fast execution brief | Summary, requirements, tasks, API, tests, risks |
+
+Supported formats from API:
+
+- `markdown` (`.md` download)
+- `text` (plain text payload derived from canonical markdown)
 
 ## Tech Stack
 
-- Next.js (App Router)
+- Next.js App Router
 - TypeScript
 - Tailwind CSS
-- shadcn/ui-style component baseline
+- shadcn-style component primitives
 - Prisma ORM
 - PostgreSQL (Docker local)
 - Zod
-- OpenAI Node SDK (Responses API, Structured Outputs)
+- OpenAI Node SDK (Responses API)
+- React Markdown + remark-gfm (print view rendering)
 - Sonner (toasts)
 
 ## Architecture Overview
 
-- `app/*`: Pages and API route handlers.
-- `components/*`: UI building blocks and feature components.
-- `server/services/*`: Server-only business logic for specs and AI generation.
-- `server/auth/*`: Mock user provider for single-user MVP flow.
-- `lib/*`: Shared runtime utilities (env, db, openai, formatting, validation).
-- `prisma/*`: Database schema, migrations, and seed script.
-- `types/*`: Shared domain and API shape types.
+- `app/*`: pages and route handlers.
+- `components/*`: reusable UI + feature components.
+- `server/services/*`: business logic (spec CRUD, AI generation, export rendering/services).
+- `lib/validations/*`: Zod schemas for input and contracts.
+- `types/*`: shared domain/API/export types.
+- `prisma/*`: schema, migrations, seed.
 
-Data flow (generation path):
+Export flow:
 
-1. User creates or regenerates a spec from UI/API.
-2. Route handler calls server service.
-3. Service builds prompt and calls OpenAI Responses API with strict schema format.
-4. Output is JSON-parsed and validated by Zod.
-5. On success: `SpecPlan` + `GenerationRun(SUCCEEDED)` are persisted and spec marked `COMPLETED`.
-6. On failure: generation run is recorded as `FAILED`, spec marked `FAILED`, and UI shows actionable retry feedback.
+1. UI captures mode + selected sections.
+2. Export API or print route validates query via shared export schema.
+3. Server export service fetches spec and latest plan.
+4. Canonical markdown renderer generates deterministic artifact.
+5. Artifact is reused for:
+   - clipboard copy
+   - markdown download
+   - print/PDF rendering
 
-## Folder Structure Summary
+## Folder Structure (Key Areas)
 
 ```txt
 app/
   (app)/
-    dashboard/
-    specs/
-      new/
-      [id]/
-  api/
-    health/
-    specs/
-      [id]/
-        generate/
+    specs/[id]/
+  (print)/
+    specs/[id]/print/
+  api/specs/[id]/
+    export/
+    generate/
 components/
-  layout/
   specs/
-  ui/
-lib/
-  validations/
-prisma/
-  migrations/
-server/
-  auth/
-  services/
+    spec-handoff-actions.tsx
+    spec-export-options.tsx
+    spec-print-document.tsx
+    spec-print-toolbar.tsx
+server/services/
+  spec-export.renderer.ts
+  spec-export.service.ts
+  spec-export.templates.ts
+lib/validations/
+  export.schema.ts
 types/
+  export.ts
 ```
 
 ## Local Setup
@@ -92,7 +115,7 @@ pnpm install
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` and fill values:
+Copy `.env.example` to `.env`:
 
 ```bash
 # macOS/Linux
@@ -104,46 +127,29 @@ Copy-Item .env.example .env
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `NEXT_PUBLIC_APP_NAME` | Yes | Public app name shown in UI. |
-| `NODE_ENV` | Yes | Runtime environment (`development` locally). |
-| `DATABASE_URL` | Yes | Prisma PostgreSQL connection string. |
-| `OPENAI_API_KEY` | Required for generation | API key used by `/api/specs` and `/api/specs/:id/generate` generation path. |
-| `OPENAI_MODEL` | Yes | Model name used by generation service (default: `gpt-4.1-mini`). |
-| `MOCK_USER_EMAIL` | Yes | Single-user identity for MVP flows and seed. |
+| `NEXT_PUBLIC_APP_NAME` | Yes | Public app name used in UI. |
+| `NODE_ENV` | Yes | Runtime environment. |
+| `DATABASE_URL` | Yes | PostgreSQL connection string for Prisma. |
+| `OPENAI_API_KEY` | Yes (for generation/export-ready data) | Key used for AI plan generation. |
+| `OPENAI_MODEL` | Yes | Model used by generation service (default `gpt-4.1-mini`). |
+| `MOCK_USER_EMAIL` | Yes | Single-user identity for MVP/V2 flow. |
 
 ## Database Setup
 
-Start local Postgres:
-
 ```bash
 pnpm db:up
-```
-
-Generate Prisma client:
-
-```bash
 pnpm prisma:generate
-```
-
-Run migrations (local dev):
-
-```bash
 pnpm db:migrate
-```
-
-Seed demo user:
-
-```bash
 pnpm db:seed
 ```
 
-Optional:
+Useful commands:
 
-- Open Prisma Studio: `pnpm prisma:studio`
-- Stop DB: `pnpm db:down`
-- View DB logs: `pnpm db:logs`
+- `pnpm prisma:studio`
+- `pnpm db:logs`
+- `pnpm db:down`
 
-## Run The App
+## Run App
 
 ```bash
 pnpm dev
@@ -151,113 +157,100 @@ pnpm dev
 
 Open:
 
-- `http://localhost:3000/` (landing)
+- `http://localhost:3000/`
 - `http://localhost:3000/dashboard`
-- `http://localhost:3000/api/health`
 
-## Migrations and Deployment Notes
+## Handoff/Export Workflow
 
-- Create/apply local migration: `pnpm db:migrate`
-- Apply existing migrations in deploy environment: `pnpm db:migrate:deploy`
-- Reset local database (destructive): `pnpm db:reset`
+1. Open a generated spec detail page.
+2. Choose export mode and section selection.
+3. Use one of:
+   - `Copy Full Plan`
+   - `Copy Selected`
+   - `Export Markdown`
+   - `Open PDF View`
+4. In print view, click `Print / Save as PDF`.
 
-## AI Generation (High Level)
+Notes:
 
-SpecPilot builds a practical prompt from:
+- At least one section must remain selected.
+- Mode defaults can be restored from the export options panel.
+- Missing plan/generating states disable handoff actions with clear guidance.
 
-- title
-- raw product request
-- optional context
-- priority
+## Export API Usage
 
-It then calls OpenAI Responses API with a strict JSON schema contract for:
+### Route
 
-- summary
-- requirements
-- assumptions
-- frontend tasks
-- backend tasks
-- database schema proposal
-- API endpoint suggestions
-- edge cases
-- test cases
-- risks
+`GET /api/specs/:id/export`
 
-The response is validated server-side with Zod. If invalid, one corrective retry is attempted. Only valid structured output is persisted as `SpecPlan`.
+### Query Params
 
-## Demo Flow
+- `mode`: `human | codex_ready | compact_brief`
+- `format`: `markdown | text`
+- `sections`: comma-separated section keys or repeated query entries
 
-1. Open `/dashboard`.
-2. Click `Create Spec`.
-3. Enter:
-   - Title: `Invoice extraction MVP`
-   - Prompt: `Users should upload invoices and extract line items automatically.`
-   - Context: `MVP scope only`
-4. Submit and wait for generation.
-5. Open detail page to inspect:
-   - plan sections
-   - latest generation telemetry
-   - version history
-6. Click `Regenerate Plan` to create `v2`.
-7. Edit input and save changes, then regenerate again.
+### Example
+
+```bash
+curl "http://localhost:3000/api/specs/<SPEC_ID>/export?mode=codex_ready&format=markdown&sections=summary,requirements,frontend_tasks"
+```
+
+### Response Behavior
+
+- `markdown`:
+  - `Content-Type: text/markdown`
+  - `Content-Disposition: attachment; filename="...md"`
+- `text`:
+  - `Content-Type: text/plain`
+
+Error statuses:
+
+- `400` invalid query
+- `404` spec not found
+- `409` missing generated plan
+
+## Print/PDF Flow
+
+- Print route: `/specs/:id/print?mode=...&sections=...`
+- Uses the same canonical markdown export path as API/download/copy.
+- Toolbar is hidden in print media.
+- Browser-native print dialog is used for PDF generation.
+
+## Demo Script
+
+1. Create a spec from `/specs/new`.
+2. Generate a plan.
+3. Open detail page.
+4. Switch between `Human`, `Codex-Ready`, and `Compact Brief`.
+5. Copy selected sections.
+6. Export markdown.
+7. Open PDF view and save as PDF.
 
 ## Quality Checks
 
-Run all release-readiness checks:
+```bash
+pnpm typecheck
+pnpm lint
+pnpm build
+```
+
+Or run all:
 
 ```bash
 pnpm check
 ```
 
-Or individually:
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm build
-```
-
-## API Surface (MVP)
-
-- `GET /api/health`
-- `GET /api/specs`
-- `POST /api/specs`
-- `GET /api/specs/:id`
-- `PATCH /api/specs/:id`
-- `POST /api/specs/:id/generate`
-
-## Screenshots
-
-Add project screenshots here before publishing:
-
-- `docs/screenshots/landing.png`
-- `docs/screenshots/dashboard.png`
-- `docs/screenshots/spec-detail.png`
-- `docs/screenshots/generation-failure.png`
-
-Example markdown:
-
-```md
-![Landing](docs/screenshots/landing.png)
-![Dashboard](docs/screenshots/dashboard.png)
-![Spec Detail](docs/screenshots/spec-detail.png)
-```
-
 ## Known Limitations
 
-- Uses mock single-user identity (`MOCK_USER_EMAIL`), no full auth yet.
-- No team collaboration or workspaces in MVP.
-- No RAG/document ingestion.
-- Structured output quality still depends on model behavior and prompt quality.
-- No automated integration test suite yet (manual and type/lint/build checks are in place).
+- Authentication is mock single-user (`MOCK_USER_EMAIL`).
+- PDF generation is browser print-based (no server-side PDF binary generation).
+- Export content quality still depends on AI generation quality.
+- No automated end-to-end suite yet; verification is currently static checks + manual flow tests.
 
 ## Future Improvements
 
-- Real authentication and user sessions.
-- Team workspaces and access control.
-- Plan diff/compare UI between versions.
-- Export plans to Markdown/PDF.
-- Prompt templates by use-case.
-- Context file upload and RAG over product docs.
-- Background job queue for long-running generation.
-- Observability dashboards for generation quality and latency.
+- Real auth and multi-user accounts.
+- Workspace/team sharing.
+- Generation diff and comparison view.
+- Saved export presets per user.
+- Optional background jobs for long-running generations.
