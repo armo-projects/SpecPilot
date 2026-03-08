@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { notFound } from "next/navigation";
+import { SpecHandoffActions } from "@/components/specs/spec-handoff-actions";
 import { RegeneratePlanButton } from "@/components/specs/regenerate-plan-button";
 import { SpecPlanSections } from "@/components/specs/spec-plan-sections";
 import { SpecPriorityBadge } from "@/components/specs/spec-priority-badge";
@@ -25,6 +26,12 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
   const isGenerating = spec.status === "GENERATING";
   const generationFailed = spec.latestGenerationRun?.status === "FAILED";
   const hasVersionHistory = spec.planVersions.length > 0;
+  const hasExportablePlan = Boolean(spec.latestPlanData);
+  const exportDisabledReason = isGenerating
+    ? "Handoff actions are disabled while generation is running."
+    : !hasExportablePlan
+      ? "Generate a plan to enable copy/export actions."
+      : null;
 
   return (
     <section className="mx-auto max-w-5xl space-y-6">
@@ -81,29 +88,37 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-5">
           <article className="rounded-xl border bg-card p-5 shadow-sm">
-            <h2 className="mb-2 text-base font-semibold">Product Request</h2>
-            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{spec.rawPrompt}</p>
-          </article>
-
-          <article className="rounded-xl border bg-card p-5 shadow-sm">
-            <h2 className="mb-2 text-base font-semibold">Additional Context</h2>
-            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
-              {spec.context ? spec.context : "No additional context provided."}
+            <h2 className="text-base font-semibold tracking-tight">Spec Document</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Unified execution document generated from this request and latest plan output.
             </p>
-          </article>
+            <div className="mt-5 space-y-5">
+              <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
+                <h3 className="text-base font-semibold">Product Request</h3>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{spec.rawPrompt}</p>
+              </section>
 
-          {spec.latestPlanData ? (
-            <SpecPlanSections plan={spec.latestPlanData} />
-          ) : (
-            <article className="rounded-xl border bg-card p-5 shadow-sm">
-              <h2 className="mb-2 text-base font-semibold">Plan Output</h2>
-              <p className="text-sm text-muted-foreground">
-                {hasVersionHistory
-                  ? "A plan version exists but could not be rendered safely. Regenerate to create a clean version."
-                  : "No generated plan yet. Click Regenerate Plan to create the first version."}
-              </p>
-            </article>
-          )}
+              <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
+                <h3 className="text-base font-semibold">Additional Context</h3>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {spec.context ? spec.context : "No additional context provided."}
+                </p>
+              </section>
+
+              {spec.latestPlanData ? (
+                <SpecPlanSections plan={spec.latestPlanData} variant="document" />
+              ) : (
+                <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
+                  <h3 className="text-base font-semibold">Plan Output</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {hasVersionHistory
+                      ? "A plan version exists but could not be rendered safely. Regenerate to create a clean version."
+                      : "No generated plan yet. Click Regenerate Plan to create the first version."}
+                  </p>
+                </section>
+              )}
+            </div>
+          </article>
 
           <UpdateSpecForm spec={spec} disabled={isGenerating} />
         </div>
@@ -165,6 +180,13 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
               <p className="text-sm text-muted-foreground">No generation runs yet.</p>
             )}
           </article>
+
+          <SpecHandoffActions
+            specId={spec.id}
+            disabled={isGenerating || !hasExportablePlan}
+            disabledReason={exportDisabledReason}
+            compact
+          />
         </aside>
       </div>
     </section>
