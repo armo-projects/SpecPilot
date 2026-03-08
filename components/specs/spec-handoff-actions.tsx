@@ -226,7 +226,14 @@ export function SpecHandoffActions({
   }
 
   function openPdfEntryPoint(): void {
-    toast.message("PDF export will be available in the next phase.");
+    const searchParams = new URLSearchParams();
+    searchParams.set("mode", mode);
+    if (selectedSectionsOrdered.length > 0) {
+      searchParams.set("sections", selectedSectionsOrdered.join(","));
+    }
+
+    const printUrl = `/specs/${specId}/print?${searchParams.toString()}`;
+    window.open(printUrl, "_blank", "noopener,noreferrer");
   }
 
   return (
