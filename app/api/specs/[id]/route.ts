@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { specIdParamsSchema, updateSpecInputSchema } from "@/lib/validations/spec-input.schema";
-import { getSpecForMockUser, updateSpecForMockUser } from "@/server/services/specs.service";
+import {
+  deleteSpecForMockUser,
+  getSpecForMockUser,
+  updateSpecForMockUser
+} from "@/server/services/specs.service";
 import type { ApiErrorResponse, GetSpecApiResponse } from "@/types/spec";
 
 function validationErrorResponse(error: ZodError): NextResponse<ApiErrorResponse> {
@@ -66,5 +70,28 @@ export async function PATCH(
 
     console.error("Failed to update spec:", error);
     return NextResponse.json({ error: "Failed to update spec." }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  try {
+    const params = specIdParamsSchema.parse(await context.params);
+    const deleted = await deleteSpecForMockUser(params.id);
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Spec not found." }, { status: 404 });
+    }
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return validationErrorResponse(error);
+    }
+
+    console.error("Failed to delete spec:", error);
+    return NextResponse.json({ error: "Failed to delete spec." }, { status: 500 });
   }
 }

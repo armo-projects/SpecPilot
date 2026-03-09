@@ -304,3 +304,21 @@ export async function updateSpecForMockUser(specId: string, input: UpdateSpecInp
 
   return mapSpecToDetail(spec);
 }
+
+export async function deleteSpecForMockUser(specId: string): Promise<boolean> {
+  const user = await getOrCreateMockUser();
+  const existing = await db.spec.findFirst({
+    where: { id: specId, userId: user.id },
+    select: { id: true }
+  });
+
+  if (!existing) {
+    return false;
+  }
+
+  await db.spec.delete({
+    where: { id: specId }
+  });
+
+  return true;
+}
