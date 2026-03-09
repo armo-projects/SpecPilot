@@ -27,6 +27,8 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
   const generationFailed = spec.latestGenerationRun?.status === "FAILED";
   const hasVersionHistory = spec.planVersions.length > 0;
   const hasExportablePlan = Boolean(spec.latestPlanData);
+  const codexReadyArtifact = spec.latestPlanData?.codexReadyArtifact ?? null;
+  const codexArtifactFailed = codexReadyArtifact?.status === "FAILED";
   const exportDisabledReason = isGenerating
     ? "Handoff actions are disabled while generation is running."
     : !hasExportablePlan
@@ -79,6 +81,21 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
               <p className="mt-1">
                 {spec.latestGenerationRun?.errorMessage ?? "The model response could not be validated."} Use
                 <span className="font-medium"> Regenerate Plan</span> to retry.
+              </p>
+            </div>
+          </div>
+        </article>
+      ) : null}
+
+      {codexArtifactFailed ? (
+        <article className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4" />
+            <div>
+              <p className="font-semibold">Codex-ready prompt unavailable</p>
+              <p className="mt-1">
+                The human plan is available, but the latest Codex-ready prompt could not be produced.
+                {codexReadyArtifact?.errorMessage ? ` ${codexReadyArtifact.errorMessage}` : ""} Regenerate the plan to retry.
               </p>
             </div>
           </div>
@@ -185,6 +202,7 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
             specId={spec.id}
             disabled={isGenerating || !hasExportablePlan}
             disabledReason={exportDisabledReason}
+            codexReadyArtifact={codexReadyArtifact}
             compact
           />
         </aside>

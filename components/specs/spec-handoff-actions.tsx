@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { SpecExportOptions } from "@/components/specs/spec-export-options";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { RunStatus } from "@/types/domain";
 import {
   DEFAULT_EXPORT_SECTIONS_BY_MODE,
   EXPORT_MODE_VALUES,
   EXPORT_SECTION_KEYS,
   EXPORT_SECTION_ORDER,
+  modeUsesSelectableSections,
   type ExportMode,
   type ExportSectionKey
 } from "@/types/export";
@@ -19,6 +21,10 @@ type SpecHandoffActionsProps = {
   specId: string;
   disabled?: boolean;
   disabledReason?: string | null;
+  codexReadyArtifact?: {
+    status: RunStatus;
+    errorMessage: string | null;
+  } | null;
   className?: string;
   compact?: boolean;
 };
@@ -38,6 +44,10 @@ const MODE_LABELS: Readonly<Record<ExportMode, string>> = {
 } as const;
 
 function getDefaultSections(mode: ExportMode): ExportSectionKey[] {
+  if (!modeUsesSelectableSections(mode)) {
+    return [];
+  }
+
   return [...DEFAULT_EXPORT_SECTIONS_BY_MODE[mode]];
 }
 
@@ -101,6 +111,7 @@ export function SpecHandoffActions({
   specId,
   disabled = false,
   disabledReason = null,
+  codexReadyArtifact = null,
   className,
   compact = false
 }: SpecHandoffActionsProps) {
@@ -111,8 +122,19 @@ export function SpecHandoffActions({
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
+  const usesSelectableSections = modeUsesSelectableSections(mode);
+  const codexActionsUnavailable =
+    mode === "codex_ready" && codexReadyArtifact !== null && codexReadyArtifact.status !== "SUCCEEDED";
+  const codexDisabledReason =
+    mode === "codex_ready" && codexReadyArtifact?.status === "FAILED"
+      ? codexReadyArtifact.errorMessage ?? "Codex-ready prompt is unavailable for the latest plan version."
+      : mode === "codex_ready" && codexReadyArtifact?.status === "STARTED"
+        ? "Codex-ready prompt is still being prepared."
+        : null;
   const isBusy = busyAction !== null;
-  const isDisabled = disabled || isBusy;
+  const isControlsDisabled = disabled || isBusy;
+  const isActionDisabled = isControlsDisabled || codexActionsUnavailable;
+  const effectiveDisabledReason = disabledReason ?? codexDisabledReason;
 
   useEffect(() => {
     try {
@@ -147,10 +169,14 @@ export function SpecHandoffActions({
 
   const selectedSectionsOrdered = useMemo(
     () => {
+      if (!usesSelectableSections) {
+        return [];
+      }
+
       const normalized = normalizeSections(selectedSections);
       return normalized.length > 0 ? normalized : getDefaultSections(mode);
     },
-    [mode, selectedSections]
+    [mode, selectedSections, usesSelectableSections]
   );
 
   function handleModeChange(nextMode: ExportMode): void {
@@ -176,6 +202,10 @@ export function SpecHandoffActions({
   }
 
   function handleSelectAll(): void {
+    if (!usesSelectableSections) {
+      return;
+    }
+
     setSelectedSections([...EXPORT_SECTION_ORDER]);
   }
 
@@ -186,19 +216,28 @@ export function SpecHandoffActions({
   async function copyFullPlan(): Promise<void> {
     setBusyAction("copy_full");
     try {
-      const response = await fetchExportContent(specId, mode, EXPORT_SECTION_ORDER, "text");
+      const response = await fetchExportContent(
+        specId,
+        mode,
+        usesSelectableSections ? EXPORT_SECTION_ORDER : [],
+        "text"
+      );
       const content = await response.text();
       await navigator.clipboard.writeText(content);
-      toast.success("Copied full plan to clipboard.");
+      toast.success(usesSelectableSections ? "Copied full plan to clipboard." : "Copied prompt to clipboard.");
     } catch (error) {
       console.error("Failed to copy full plan:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to copy full plan.");
+      toast.error(error instanceof Error ? error.message : usesSelectableSections ? "Failed to copy full plan." : "Failed to copy prompt.");
     } finally {
       setBusyAction(null);
     }
   }
 
   async function copySelectedSections(): Promise<void> {
+    if (!usesSelectableSections) {
+      return;
+    }
+
     setBusyAction("copy_selected");
     try {
       const response = await fetchExportContent(specId, mode, selectedSectionsOrdered, "text");
@@ -216,7 +255,12 @@ export function SpecHandoffActions({
   async function downloadMarkdown(): Promise<void> {
     setBusyAction("download_markdown");
     try {
-      const response = await fetchExportContent(specId, mode, selectedSectionsOrdered, "markdown");
+      const response = await fetchExportContent(
+        specId,
+        mode,
+        usesSelectableSections ? selectedSectionsOrdered : [],
+        "markdown"
+      );
       const blob = await response.blob();
 
       const disposition = response.headers.get("Content-Disposition") ?? "";
@@ -245,7 +289,7 @@ export function SpecHandoffActions({
   function openPdfEntryPoint(): void {
     const searchParams = new URLSearchParams();
     searchParams.set("mode", mode);
-    if (selectedSectionsOrdered.length > 0) {
+    if (usesSelectableSections && selectedSectionsOrdered.length > 0) {
       searchParams.set("sections", selectedSectionsOrdered.join(","));
     }
 
@@ -266,9 +310,9 @@ export function SpecHandoffActions({
           <h2 className="text-sm font-semibold tracking-tight">Handoff</h2>
           <p className="text-xs text-muted-foreground">Copy or export execution-ready output from the canonical export path.</p>
           <p className="text-xs text-slate-500">
-            Mode: {MODE_LABELS[mode]} | Sections: {selectedSectionsOrdered.length}
+            Mode: {MODE_LABELS[mode]} | {usesSelectableSections ? `Sections: ${selectedSectionsOrdered.length}` : "Fixed prompt"}
           </p>
-          {disabledReason ? <p className="text-xs text-amber-700">{disabledReason}</p> : null}
+          {effectiveDisabledReason ? <p className="text-xs text-amber-700">{effectiveDisabledReason}</p> : null}
         </div>
 
         <div className={cn("grid gap-2 sm:grid-cols-2")}>
@@ -277,28 +321,30 @@ export function SpecHandoffActions({
             variant="outline"
             size="sm"
             onClick={copyFullPlan}
-            disabled={isDisabled}
+            disabled={isActionDisabled}
             className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
           >
             {busyAction === "copy_full" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clipboard className="mr-2 h-4 w-4" />}
-            {busyAction === "copy_full" ? "Copying..." : "Copy Full Plan"}
+            {busyAction === "copy_full" ? "Copying..." : usesSelectableSections ? "Copy Full Plan" : "Copy Prompt"}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={copySelectedSections}
-            disabled={isDisabled}
-            className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
-          >
-            {busyAction === "copy_selected" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
-            {busyAction === "copy_selected" ? "Copying..." : "Copy Selected"}
-          </Button>
+          {usesSelectableSections ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={copySelectedSections}
+              disabled={isActionDisabled}
+              className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
+            >
+              {busyAction === "copy_selected" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
+              {busyAction === "copy_selected" ? "Copying..." : "Copy Selected"}
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
             onClick={downloadMarkdown}
-            disabled={isDisabled}
+            disabled={isActionDisabled}
             className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
           >
             {busyAction === "download_markdown" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
@@ -309,7 +355,7 @@ export function SpecHandoffActions({
             variant="outline"
             size="sm"
             onClick={openPdfEntryPoint}
-            disabled={isDisabled}
+            disabled={isActionDisabled}
             className={cn("w-full justify-center whitespace-nowrap", compact && "px-2 text-xs")}
           >
             <FileDown className="mr-2 h-4 w-4" />
@@ -337,7 +383,7 @@ export function SpecHandoffActions({
               <SpecExportOptions
                 mode={mode}
                 selectedSections={selectedSectionsOrdered}
-                disabled={isDisabled}
+                disabled={isControlsDisabled}
                 compact
                 onModeChange={handleModeChange}
                 onToggleSection={handleToggleSection}
@@ -351,7 +397,7 @@ export function SpecHandoffActions({
         <SpecExportOptions
           mode={mode}
           selectedSections={selectedSectionsOrdered}
-          disabled={isDisabled}
+          disabled={isControlsDisabled}
           onModeChange={handleModeChange}
           onToggleSection={handleToggleSection}
           onSelectAll={handleSelectAll}

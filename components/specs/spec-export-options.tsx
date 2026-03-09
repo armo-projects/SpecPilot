@@ -1,7 +1,7 @@
 "use client";
 
 import type { ExportMode, ExportSectionKey } from "@/types/export";
-import { DEFAULT_EXPORT_SECTIONS_BY_MODE, EXPORT_SECTION_ORDER } from "@/types/export";
+import { DEFAULT_EXPORT_SECTIONS_BY_MODE, EXPORT_SECTION_ORDER, modeUsesSelectableSections } from "@/types/export";
 import { Button } from "@/components/ui/button";
 
 type SpecExportOptionsProps = {
@@ -48,6 +48,7 @@ export function SpecExportOptions({
 }: SpecExportOptionsProps) {
   const selectedSet = new Set(selectedSections);
   const defaultsForMode = DEFAULT_EXPORT_SECTIONS_BY_MODE[mode];
+  const usesSelectableSections = modeUsesSelectableSections(mode);
   const containerClassName = compact
     ? "space-y-3"
     : "space-y-3 rounded-xl border bg-card p-4 shadow-sm";
@@ -57,7 +58,11 @@ export function SpecExportOptions({
       {!compact ? (
         <div className="space-y-1">
           <h3 className="text-sm font-semibold tracking-tight">Export Options</h3>
-          <p className="text-xs text-muted-foreground">Choose mode and sections included in copy/export output.</p>
+          <p className="text-xs text-muted-foreground">
+            {usesSelectableSections
+              ? "Choose mode and sections included in copy/export output."
+              : "Choose mode. Codex-Ready exports a fixed coding-agent prompt."}
+          </p>
         </div>
       ) : null}
 
@@ -80,50 +85,59 @@ export function SpecExportOptions({
         </select>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-medium text-slate-700">Sections ({selectedSections.length})</p>
-          <div className="flex items-center gap-1.5">
-            <Button type="button" variant="ghost" size="sm" onClick={onSelectAll} disabled={disabled} className="h-7 px-2 text-xs">
-              Select all
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onResetToModeDefaults}
-              disabled={disabled}
-              className="h-7 px-2 text-xs"
-            >
-              Reset defaults
-            </Button>
+      {usesSelectableSections ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium text-slate-700">Sections ({selectedSections.length})</p>
+            <div className="flex items-center gap-1.5">
+              <Button type="button" variant="ghost" size="sm" onClick={onSelectAll} disabled={disabled} className="h-7 px-2 text-xs">
+                Select all
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onResetToModeDefaults}
+                disabled={disabled}
+                className="h-7 px-2 text-xs"
+              >
+                Reset defaults
+              </Button>
+            </div>
           </div>
+
+          <p className="text-[11px] text-slate-500">At least one section must remain selected.</p>
+
+          <div className={`grid gap-1.5 rounded-md border bg-slate-50/70 p-2 ${compact ? "max-h-44 overflow-y-auto" : ""}`}>
+            {EXPORT_SECTION_ORDER.map((section) => (
+              <label
+                key={section}
+                className="flex items-center gap-2 rounded px-1.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedSet.has(section)}
+                  onChange={(event) => onToggleSection(section, event.target.checked)}
+                  disabled={disabled || (selectedSections.length === 1 && selectedSet.has(section))}
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-primary"
+                />
+                <span>{SECTION_LABELS[section]}</span>
+              </label>
+            ))}
+          </div>
+
+          <p className="text-[11px] text-slate-500">
+            Defaults for {MODE_LABELS[mode]} include {defaultsForMode.length} sections.
+          </p>
         </div>
-
-        <p className="text-[11px] text-slate-500">At least one section must remain selected.</p>
-
-        <div className={`grid gap-1.5 rounded-md border bg-slate-50/70 p-2 ${compact ? "max-h-44 overflow-y-auto" : ""}`}>
-          {EXPORT_SECTION_ORDER.map((section) => (
-            <label
-              key={section}
-              className="flex items-center gap-2 rounded px-1.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
-            >
-              <input
-                type="checkbox"
-                checked={selectedSet.has(section)}
-                onChange={(event) => onToggleSection(section, event.target.checked)}
-                disabled={disabled || (selectedSections.length === 1 && selectedSet.has(section))}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-primary"
-              />
-              <span>{SECTION_LABELS[section]}</span>
-            </label>
-          ))}
+      ) : (
+        <div className="rounded-md border bg-slate-50/70 p-3">
+          <p className="text-xs font-medium text-slate-700">Fixed prompt</p>
+          <p className="mt-1 text-[11px] leading-5 text-slate-500">
+            Codex-Ready always exports the full artifact-backed prompt. Section filters do not apply to this mode.
+          </p>
         </div>
-
-        <p className="text-[11px] text-slate-500">
-          Defaults for {MODE_LABELS[mode]} include {defaultsForMode.length} sections.
-        </p>
-      </div>
+      )}
     </article>
   );
 }

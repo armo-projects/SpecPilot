@@ -26,6 +26,14 @@ enum RunStatus {
   FAILED
 }
 
+enum PromptArtifactMode {
+  CODEX_READY
+}
+
+enum PromptArtifactTarget {
+  GENERIC
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -70,9 +78,28 @@ model SpecPlan {
   modelUsed      String
   createdAt      DateTime @default(now())
   spec           Spec     @relation(fields: [specId], references: [id], onDelete: Cascade)
+  promptArtifacts SpecPromptArtifact[]
 
   @@unique([specId, version])
   @@index([specId, createdAt])
+}
+
+model SpecPromptArtifact {
+  id             String               @id @default(cuid())
+  specPlanId     String
+  mode           PromptArtifactMode
+  target         PromptArtifactTarget
+  status         RunStatus            @default(STARTED)
+  markdown       String?
+  structuredData Json?
+  modelUsed      String?
+  errorMessage   String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  specPlan       SpecPlan             @relation(fields: [specPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([specPlanId, mode, target])
+  @@index([specPlanId, mode])
 }
 
 model GenerationRun {
