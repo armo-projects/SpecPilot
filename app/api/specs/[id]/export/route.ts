@@ -15,6 +15,7 @@ type ExportApiErrorCode =
   | "INVALID_EXPORT_QUERY"
   | "SPEC_NOT_FOUND"
   | "PLAN_NOT_FOUND"
+  | "PROMPT_NOT_AVAILABLE"
   | "EXPORT_FAILED";
 
 type ExportApiErrorResponse = ApiErrorResponse & {

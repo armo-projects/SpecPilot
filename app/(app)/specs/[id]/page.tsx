@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { notFound } from "next/navigation";
+import { SpecDetailDocumentViewer } from "@/components/specs/spec-detail-document-viewer";
 import { SpecHandoffActions } from "@/components/specs/spec-handoff-actions";
 import { RegeneratePlanButton } from "@/components/specs/regenerate-plan-button";
-import { SpecPlanSections } from "@/components/specs/spec-plan-sections";
 import { SpecPriorityBadge } from "@/components/specs/spec-priority-badge";
 import { SpecStatusBadge } from "@/components/specs/spec-status-badge";
 import { UpdateSpecForm } from "@/components/specs/update-spec-form";
@@ -27,6 +27,8 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
   const generationFailed = spec.latestGenerationRun?.status === "FAILED";
   const hasVersionHistory = spec.planVersions.length > 0;
   const hasExportablePlan = Boolean(spec.latestPlanData);
+  const codexReadyArtifact = spec.latestPlanData?.codexReadyArtifact ?? null;
+  const codexArtifactFailed = codexReadyArtifact?.status === "FAILED";
   const exportDisabledReason = isGenerating
     ? "Handoff actions are disabled while generation is running."
     : !hasExportablePlan
@@ -85,6 +87,21 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
         </article>
       ) : null}
 
+      {codexArtifactFailed ? (
+        <article className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4" />
+            <div>
+              <p className="font-semibold">Codex-ready prompt unavailable</p>
+              <p className="mt-1">
+                The human plan is available, but the latest Codex-ready prompt could not be produced.
+                {codexReadyArtifact?.errorMessage ? ` ${codexReadyArtifact.errorMessage}` : ""} Regenerate the plan to retry.
+              </p>
+            </div>
+          </div>
+        </article>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-5">
           <article className="rounded-xl border bg-card p-5 shadow-sm">
@@ -92,21 +109,15 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
             <p className="mt-1 text-sm text-muted-foreground">
               Unified execution document generated from this request and latest plan output.
             </p>
-            <div className="mt-5 space-y-5">
-              <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
-                <h3 className="text-base font-semibold">Product Request</h3>
-                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{spec.rawPrompt}</p>
-              </section>
-
-              <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
-                <h3 className="text-base font-semibold">Additional Context</h3>
-                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                  {spec.context ? spec.context : "No additional context provided."}
-                </p>
-              </section>
-
+            <div className="mt-5">
               {spec.latestPlanData ? (
-                <SpecPlanSections plan={spec.latestPlanData} variant="document" />
+                <SpecDetailDocumentViewer
+                  spec={{
+                    rawPrompt: spec.rawPrompt,
+                    context: spec.context,
+                    latestPlanData: spec.latestPlanData
+                  }}
+                />
               ) : (
                 <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
                   <h3 className="text-base font-semibold">Plan Output</h3>
@@ -185,6 +196,7 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
             specId={spec.id}
             disabled={isGenerating || !hasExportablePlan}
             disabledReason={exportDisabledReason}
+            codexReadyArtifact={codexReadyArtifact}
             compact
           />
         </aside>

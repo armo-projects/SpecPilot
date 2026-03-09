@@ -1,5 +1,7 @@
+import type { AiCodingPrompt } from "@/lib/validations/ai-coding-prompt.schema";
 import type { RunStatus, SpecPriority, SpecStatus } from "@/types/domain";
 import type { AiSpecPlan } from "@/lib/validations/ai-spec-plan.schema";
+import type { PromptArtifactMode, PromptArtifactTarget } from "@/types/domain";
 
 export interface SpecPlanPreview {
   id: string;
@@ -12,6 +14,23 @@ export type SpecPlanVersion = SpecPlanPreview;
 
 export interface SpecPlanData extends SpecPlanVersion, AiSpecPlan {
   modelUsed: string;
+  codexReadyArtifact: SpecPromptArtifactSummary | null;
+}
+
+export interface SpecPromptArtifactSummary {
+  id: string;
+  mode: PromptArtifactMode;
+  target: PromptArtifactTarget;
+  status: RunStatus;
+  markdown: string | null;
+  errorMessage: string | null;
+  modelUsed: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SpecPromptArtifactData extends SpecPromptArtifactSummary {
+  structuredData: AiCodingPrompt | null;
 }
 
 export interface GenerationRunSummary {

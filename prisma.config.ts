@@ -16,6 +16,6 @@ if (typeof process.loadEnvFile === "function") {
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
-    seed: "tsx prisma/seed.ts"
+    seed: "node prisma/seed.js"
   }
 });

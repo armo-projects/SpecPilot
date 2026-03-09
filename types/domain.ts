@@ -1,10 +1,14 @@
 export const SPEC_STATUS_VALUES = ["DRAFT", "GENERATING", "COMPLETED", "FAILED"] as const;
 export const SPEC_PRIORITY_VALUES = ["LOW", "MEDIUM", "HIGH"] as const;
 export const RUN_STATUS_VALUES = ["STARTED", "SUCCEEDED", "FAILED"] as const;
+export const PROMPT_ARTIFACT_MODE_VALUES = ["CODEX_READY"] as const;
+export const PROMPT_ARTIFACT_TARGET_VALUES = ["GENERIC"] as const;
 
 export type SpecStatus = (typeof SPEC_STATUS_VALUES)[number];
 export type SpecPriority = (typeof SPEC_PRIORITY_VALUES)[number];
 export type RunStatus = (typeof RUN_STATUS_VALUES)[number];
+export type PromptArtifactMode = (typeof PROMPT_ARTIFACT_MODE_VALUES)[number];
+export type PromptArtifactTarget = (typeof PROMPT_ARTIFACT_TARGET_VALUES)[number];
 
 export interface DomainUser {
   id: string;
@@ -54,4 +58,18 @@ export interface DomainGenerationRun {
   errorMessage: string | null;
   tokensUsed: number | null;
   latencyMs: number | null;
+}
+
+export interface DomainSpecPromptArtifact {
+  id: string;
+  specPlanId: string;
+  mode: PromptArtifactMode;
+  target: PromptArtifactTarget;
+  status: RunStatus;
+  markdown: string | null;
+  structuredData: unknown;
+  modelUsed: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }

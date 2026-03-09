@@ -110,6 +110,14 @@ export default async function SpecPrintPage({ params, searchParams }: PrintPageP
           "Generate a plan first, then open print/PDF export again from the spec detail page.",
         specId: idResult.data.id
       };
+    } else if (isSpecExportServiceError(error) && error.code === "PROMPT_NOT_AVAILABLE") {
+      pageError = {
+        title: "Codex-ready prompt unavailable",
+        message:
+          error.message ||
+          "The latest plan does not have a usable Codex-ready prompt. Regenerate the plan to retry.",
+        specId: idResult.data.id
+      };
     } else {
       console.error("Failed to render print page:", error);
       pageError = {

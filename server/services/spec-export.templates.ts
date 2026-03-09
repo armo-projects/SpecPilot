@@ -1,5 +1,5 @@
 import "server-only";
-import type { ExportMode, ExportSectionKey } from "@/types/export";
+import type { ExportSectionKey, SectionedExportMode } from "@/types/export";
 import type { SpecDetail } from "@/types/spec";
 
 type TemplateContext = {
@@ -7,14 +7,14 @@ type TemplateContext = {
 };
 
 export type ExportTemplateDefinition = {
-  mode: ExportMode;
+  mode: SectionedExportMode;
   buildTitle: (context: TemplateContext) => string;
   buildPreamble: (context: TemplateContext) => string[];
   buildFooter?: (context: TemplateContext) => string[];
   sectionTitleOverrides?: Partial<Record<ExportSectionKey, string>>;
 };
 
-export const EXPORT_TEMPLATES: Readonly<Record<ExportMode, ExportTemplateDefinition>> = {
+export const EXPORT_TEMPLATES: Readonly<Record<SectionedExportMode, ExportTemplateDefinition>> = {
   human: {
     mode: "human",
     buildTitle: ({ spec }) => `${spec.title} - Engineering Spec`,
@@ -23,22 +23,6 @@ export const EXPORT_TEMPLATES: Readonly<Record<ExportMode, ExportTemplateDefinit
       `Priority: ${spec.priority}`,
       `Status: ${spec.status}`
     ]
-  },
-  codex_ready: {
-    mode: "codex_ready",
-    buildTitle: ({ spec }) => `${spec.title} - Codex Ready Build Prompt`,
-    buildPreamble: () => [
-      "You are implementing the feature described below.",
-      "Use this document as the execution specification.",
-      "Keep implementation decisions aligned with listed requirements, API contracts, and tests."
-    ],
-    buildFooter: () => [
-      "Implementation note: If requirements conflict, prioritize explicit API contracts and test cases."
-    ],
-    sectionTitleOverrides: {
-      product_request: "Feature Objective",
-      test_cases: "Acceptance Tests"
-    }
   },
   compact_brief: {
     mode: "compact_brief",

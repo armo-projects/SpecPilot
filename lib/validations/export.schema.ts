@@ -5,6 +5,7 @@ import {
   EXPORT_MODE_VALUES,
   EXPORT_SECTION_KEYS,
   EXPORT_SECTION_ORDER,
+  modeUsesSelectableSections,
   type ExportMode,
   type ExportSectionKey,
   type ResolvedExportConfig
@@ -79,6 +80,10 @@ export function resolveExportSections(
   mode: ExportMode,
   sections: readonly ExportSectionKey[] | undefined
 ): ExportSectionKey[] {
+  if (!modeUsesSelectableSections(mode)) {
+    return [];
+  }
+
   const sourceSections =
     sections && sections.length > 0 ? sections : DEFAULT_EXPORT_SECTIONS_BY_MODE[mode];
   const unique = new Set<ExportSectionKey>(sourceSections);

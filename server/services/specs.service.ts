@@ -43,7 +43,26 @@ const detailInclude = {
       testCases: true,
       risks: true,
       modelUsed: true,
-      createdAt: true
+      createdAt: true,
+      promptArtifacts: {
+        where: {
+          mode: "CODEX_READY",
+          target: "GENERIC"
+        },
+        take: 1,
+        select: {
+          id: true,
+          mode: true,
+          target: true,
+          status: true,
+          markdown: true,
+          structuredData: true,
+          modelUsed: true,
+          errorMessage: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }
     }
   },
   generationRuns: {
@@ -115,6 +134,35 @@ function mapGenerationRun(run: {
   };
 }
 
+function mapPromptArtifactSummary(artifact: {
+  id: string;
+  mode: "CODEX_READY";
+  target: "GENERIC";
+  status: "STARTED" | "SUCCEEDED" | "FAILED";
+  markdown: string | null;
+  structuredData: unknown;
+  modelUsed: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+} | undefined): SpecPlanData["codexReadyArtifact"] {
+  if (!artifact) {
+    return null;
+  }
+
+  return {
+    id: artifact.id,
+    mode: artifact.mode,
+    target: artifact.target,
+    status: artifact.status,
+    markdown: artifact.markdown,
+    errorMessage: artifact.errorMessage,
+    modelUsed: artifact.modelUsed,
+    createdAt: artifact.createdAt,
+    updatedAt: artifact.updatedAt
+  };
+}
+
 function mapPlanData(plan: {
   id: string;
   version: number;
@@ -130,6 +178,18 @@ function mapPlanData(plan: {
   risks: unknown;
   modelUsed: string;
   createdAt: Date;
+  promptArtifacts: Array<{
+    id: string;
+    mode: "CODEX_READY";
+    target: "GENERIC";
+    status: "STARTED" | "SUCCEEDED" | "FAILED";
+    markdown: string | null;
+    structuredData: unknown;
+    modelUsed: string | null;
+    errorMessage: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
 } | undefined): SpecPlanData | null {
   if (!plan) {
     return null;
@@ -158,6 +218,7 @@ function mapPlanData(plan: {
     version: plan.version,
     createdAt: plan.createdAt,
     modelUsed: plan.modelUsed,
+    codexReadyArtifact: mapPromptArtifactSummary(plan.promptArtifacts[0]),
     ...parsed.data
   };
 }
@@ -206,6 +267,18 @@ function mapSpecToDetail(spec: {
     risks: unknown;
     modelUsed: string;
     createdAt: Date;
+    promptArtifacts: Array<{
+      id: string;
+      mode: "CODEX_READY";
+      target: "GENERIC";
+      status: "STARTED" | "SUCCEEDED" | "FAILED";
+      markdown: string | null;
+      structuredData: unknown;
+      modelUsed: string | null;
+      errorMessage: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
   }>;
   generationRuns: Array<{
     id: string;
