@@ -1,5 +1,4 @@
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { SpecMarkdownContent } from "@/components/specs/spec-markdown-content";
 
 type SpecPrintDocumentProps = {
   markdown: string;
@@ -8,9 +7,7 @@ type SpecPrintDocumentProps = {
 export function SpecPrintDocument({ markdown }: SpecPrintDocumentProps) {
   return (
     <article className="specpilot-print-document">
-      <div className="specpilot-print-markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-      </div>
+      <SpecMarkdownContent markdown={markdown} className="specpilot-print-markdown" />
     </article>
   );
 }

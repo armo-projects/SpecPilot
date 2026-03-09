@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { notFound } from "next/navigation";
+import { SpecDetailDocumentViewer } from "@/components/specs/spec-detail-document-viewer";
 import { SpecHandoffActions } from "@/components/specs/spec-handoff-actions";
 import { RegeneratePlanButton } from "@/components/specs/regenerate-plan-button";
-import { SpecPlanSections } from "@/components/specs/spec-plan-sections";
 import { SpecPriorityBadge } from "@/components/specs/spec-priority-badge";
 import { SpecStatusBadge } from "@/components/specs/spec-status-badge";
 import { UpdateSpecForm } from "@/components/specs/update-spec-form";
@@ -109,21 +109,15 @@ export default async function SpecDetailPage({ params }: SpecDetailPageProps) {
             <p className="mt-1 text-sm text-muted-foreground">
               Unified execution document generated from this request and latest plan output.
             </p>
-            <div className="mt-5 space-y-5">
-              <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
-                <h3 className="text-base font-semibold">Product Request</h3>
-                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{spec.rawPrompt}</p>
-              </section>
-
-              <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
-                <h3 className="text-base font-semibold">Additional Context</h3>
-                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                  {spec.context ? spec.context : "No additional context provided."}
-                </p>
-              </section>
-
+            <div className="mt-5">
               {spec.latestPlanData ? (
-                <SpecPlanSections plan={spec.latestPlanData} variant="document" />
+                <SpecDetailDocumentViewer
+                  spec={{
+                    rawPrompt: spec.rawPrompt,
+                    context: spec.context,
+                    latestPlanData: spec.latestPlanData
+                  }}
+                />
               ) : (
                 <section className="space-y-2 rounded-lg border bg-slate-50/70 p-4">
                   <h3 className="text-base font-semibold">Plan Output</h3>
